@@ -312,6 +312,31 @@ main {
 }
 .btn-danger:hover { opacity: 0.9; }
 
+/* Primary button (brand) */
+.btn-primary {
+    background: linear-gradient(90deg, var(--primary) 0%, #059669 100%);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 700;
+    border: none;
+    box-shadow: var(--shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* small utility for subtle outlined buttons used in hero */
+.btn-outline-secondary {
+    background: transparent;
+    border: 2px solid rgba(17,24,39,0.08);
+    color: var(--dark);
+    padding: 10px 20px;
+    border-radius: 12px;
+}
+
 /* =====================
    CARDS, FEATURE CARDS & APP CARDS
 ===================== */
