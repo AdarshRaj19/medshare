@@ -5,10 +5,8 @@
 
 {% block content %}
 
-<!-- IMAGE CAROUSEL/SLIDER -->
-
-<!-- HERO LANDING (modern split layout) -->
-<section class="hero-landing">
+<!-- HERO CAROUSEL SECTION WITH 4 SLIDES -->
+<section class="hero-carousel-section">
     <div class="container hero-grid">
         <div class="hero-left">
             <span class="eyebrow">A Medicine Donation Platform</span>
@@ -309,6 +307,94 @@
 </section>
 
 <style>
+    /* HERO CAROUSEL STYLES */
+    .hero-carousel-section {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .hero-carousel-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .hero-slide {
+        display: none;
+        opacity: 0;
+        transition: opacity 0.6s ease-in-out;
+        padding: 60px 0 40px;
+    }
+
+    .hero-slide.active {
+        display: block;
+        opacity: 1;
+    }
+
+    .hero-slide-img {
+        width: 100%;
+        height: auto;
+        max-width: 420px;
+    }
+
+    .carousel-control-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(16,185,129,0.9);
+        color: white;
+        border: none;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 20px;
+        transition: all 0.3s ease;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .carousel-control-btn:hover {
+        background: rgba(16,185,129,1);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-control-btn.prev {
+        left: 20px;
+    }
+
+    .carousel-control-btn.next {
+        right: 20px;
+    }
+
+    .carousel-indicators {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 12px;
+        z-index: 10;
+    }
+
+    .carousel-indicators .indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.5);
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        padding: 0;
+    }
+
+    .carousel-indicators .indicator.active {
+        background: white;
+        transform: scale(1.3);
+    }
+
     /* HERO LANDING STYLES */
     .hero-landing {
         padding: 60px 0 40px;
@@ -610,24 +696,94 @@
         padding-right: 20px;
     }
 
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 28px;
+    }
+
+    .feature-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #10b981, #3b82f6, #f39c12);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .feature-card:hover::before {
+        opacity: 1;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 30px rgba(16,185,129,0.15);
+    }
+
     .feature-icon {
         font-size: 40px;
-        color: var(--primary);
+        color: white;
         margin-bottom: 15px;
-        display: inline-block;
-        width: 70px;
-        height: 70px;
-        background: rgba(16,185,129,0.1);
-        border-radius: 10px;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         transition: all 0.3s ease;
     }
 
+    .feature-card:nth-child(2) .feature-icon {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .feature-card:nth-child(3) .feature-icon {
+        background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+    }
+
+    .feature-card:nth-child(4) .feature-icon {
+        background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+    }
+
+    .feature-card:nth-child(5) .feature-icon {
+        background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    }
+
+    .feature-card:nth-child(6) .feature-icon {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    }
+
     .feature-card:hover .feature-icon {
-        background: rgba(16,185,129,0.2);
-        transform: scale(1.1);
+        transform: scale(1.15) rotate(-5deg);
+    }
+
+    .feature-card h3 {
+        color: var(--dark);
+        font-weight: 700;
+        margin: 16px 0 10px;
+        font-size: 18px;
+    }
+
+    .feature-card p {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0;
     }
 
     /* How It Works Section */
@@ -649,11 +805,37 @@
         box-shadow: 0 5px 15px rgba(0,0,0,0.08);
         transition: all 0.3s ease;
         position: relative;
+        overflow: hidden;
+    }
+
+    .how-step::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(16,185,129,0.08), transparent);
+        transition: all 0.3s ease;
+    }
+
+    .how-step:nth-child(2)::before {
+        background: radial-gradient(circle, rgba(59,130,246,0.08), transparent);
+    }
+
+    .how-step:nth-child(3)::before {
+        background: radial-gradient(circle, rgba(243,156,18,0.08), transparent);
     }
 
     .how-step:hover {
         transform: translateY(-8px);
         box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+    }
+
+    .how-step:hover::before {
+        top: -40%;
+        right: -40%;
     }
 
     .step-number {
@@ -828,6 +1010,48 @@
             });
         });
     })();
+</script>
+
+<script>
+    // Hero Carousel Controls
+    let currentHeroSlide = 0;
+    const heroSlides = document.querySelectorAll('.hero-slide');
+    const heroIndicators = document.querySelectorAll('.carousel-indicators .indicator');
+
+    function showHeroSlide(n){
+        heroSlides.forEach(slide => slide.classList.remove('active'));
+        heroIndicators.forEach(ind => ind.classList.remove('active'));
+
+        if (n >= heroSlides.length) currentHeroSlide = 0;
+        if (n < 0) currentHeroSlide = heroSlides.length - 1;
+
+        if (heroSlides[currentHeroSlide]) {
+            heroSlides[currentHeroSlide].classList.add('active');
+        }
+        if (heroIndicators[currentHeroSlide]) {
+            heroIndicators[currentHeroSlide].classList.add('active');
+        }
+    }
+
+    function heroSliderNext(){
+        currentHeroSlide++;
+        showHeroSlide(currentHeroSlide);
+    }
+
+    function heroSliderPrev(){
+        currentHeroSlide--;
+        showHeroSlide(currentHeroSlide);
+    }
+
+    function heroSliderGo(n){
+        currentHeroSlide = n;
+        showHeroSlide(currentHeroSlide);
+    }
+
+    // Auto-advance slides every 8 seconds
+    setInterval(function(){
+        heroSliderNext();
+    }, 8000);
 </script>
 
 {% endblock %}
