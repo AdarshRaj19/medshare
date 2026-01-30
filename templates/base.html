@@ -39,13 +39,26 @@
                 <a href="{% url 'admin_reports' %}" title="Admin Dashboard">
                     <i class="fas fa-chart-line"></i> Reports
                 </a>
+                <a href="{% url 'delivery_assign' %}" title="Assign Deliveries">
+                    <i class="fas fa-dolly"></i> Deliveries
+                </a>
+            {% elif user.profile.role == "delivery_boy" %}
+                <a href="{% url 'delivery_boy_dashboard' %}" title="My Deliveries">
+                    <i class="fas fa-dolly"></i> My Deliveries
+                </a>
             {% elif user.profile.role == "donor" %}
                 <a href="{% url 'donor_dashboard' %}" title="Your Donations">
                     <i class="fas fa-heart"></i> Dashboard
                 </a>
+                <a href="{% url 'pickup_delivery_dashboard' %}" title="Pickups & Deliveries">
+                    <i class="fas fa-truck"></i> Pickups
+                </a>
             {% else %}
                 <a href="{% url 'ngo_dashboard' %}" title="Find Medicines">
                     <i class="fas fa-search"></i> Find
+                </a>
+                <a href="{% url 'pickup_delivery_dashboard' %}" title="Pickups & Deliveries">
+                    <i class="fas fa-truck"></i> Deliveries
                 </a>
             {% endif %}
 

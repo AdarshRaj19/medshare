@@ -17,7 +17,8 @@ import csv
 
 from .models import (
     Medicine, DonationRequest, UserProfile, MedicineRating, 
-    MedicineSearchLog, Notification, ContactMessage, Testimonial, FAQ, PasswordResetToken
+    MedicineSearchLog, Notification, ContactMessage, Testimonial, FAQ, PasswordResetToken,
+    PickupDelivery, DeliveryBoy, Delivery, DeliveryLocation
 )
 from .forms import (
     MedicineForm, UserSignupForm, UserProfileForm, UserLoginForm,
@@ -902,3 +903,551 @@ def testimonials(request):
     context = {'testimonials': testimonials_list}
     return render(request, 'testimonials.html', context)
 
+
+@login_required
+def pickup_delivery_dashboard(request):
+    """Pickup and Delivery tracking dashboard for donors and NGOs"""
+    user_profile = request.user.profile
+    pickups = PickupDelivery.objects.none()
+    stats = {}
+    
+    if user_profile.role == 'donor':
+        # Donor view - pickups they need to do
+        pickups = PickupDelivery.objects.filter(donor=request.user).annotate(
+            avg_rating=Avg('medicine__ratings__rating')
+        )
+        stats = {
+            'pending_pickups': pickups.filter(status='pending').count(),
+            'picked_up': pickups.filter(status='picked_up').count(),
+            'in_transit': pickups.filter(status='in_transit').count(),
+            'total': pickups.count(),
+        }
+    elif user_profile.role == 'ngo':
+        # NGO view - deliveries they should receive
+        pickups = PickupDelivery.objects.filter(ngo=request.user).annotate(
+            avg_rating=Avg('medicine__ratings__rating')
+        )
+        stats = {
+            'pending_delivery': pickups.filter(status='pending').count(),
+            'in_transit': pickups.filter(status='in_transit').count(),
+            'delivered': pickups.filter(status='delivered').count(),
+            'total': pickups.count(),
+        }
+    
+    context = {
+        'pickups': pickups,
+        'stats': stats,
+        'user_role': user_profile.role,
+    }
+    return render(request, 'pickup_delivery_dashboard.html', context)
+
+
+@login_required
+def create_pickup_delivery(request, req_id):
+    """Create pickup and delivery tracking from donation request"""
+    donation_req = get_object_or_404(DonationRequest, id=req_id, status='accepted')
+    user_profile = request.user.profile
+    
+    # Only donor can create pickup/delivery
+    if donation_req.medicine.donor != request.user:
+        messages.error(request, "You don't have permission to create this pickup record.")
+        return redirect('donor_dashboard')
+    
+    # Check if already exists
+    if hasattr(donation_req, 'pickup_delivery'):
+        messages.info(request, "Pickup/Delivery record already exists for this request.")
+        return redirect('pickup_delivery_detail', pd_id=donation_req.pickup_delivery.id)
+    
+    if request.method == 'POST':
+        scheduled_date = request.POST.get('scheduled_pickup_date')
+        notes = request.POST.get('pickup_notes')
+        quantity = donation_req.quantity_requested or donation_req.medicine.quantity
+        
+        pickup_delivery = PickupDelivery.objects.create(
+            donation_request=donation_req,
+            donor=request.user,
+            ngo=donation_req.ngo,
+            medicine=donation_req.medicine,
+            status='pending',
+            scheduled_pickup_date=scheduled_date if scheduled_date else None,
+            pickup_notes=notes,
+            quantity_scheduled=quantity
+        )
+        
+        messages.success(request, "Pickup and delivery tracking created successfully.")
+        return redirect('pickup_delivery_detail', pd_id=pickup_delivery.id)
+    
+    context = {
+        'donation_request': donation_req,
+        'medicine': donation_req.medicine,
+    }
+    return render(request, 'create_pickup_delivery.html', context)
+
+
+@login_required
+def pickup_delivery_detail(request, pd_id):
+    """View and update pickup/delivery details"""
+    pickup_delivery = get_object_or_404(PickupDelivery, id=pd_id)
+    user_profile = request.user.profile
+    
+    # Only donor or NGO involved can view
+    if request.user != pickup_delivery.donor and request.user != pickup_delivery.ngo:
+        messages.error(request, "You don't have permission to view this.")
+        return redirect('home')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'mark_picked_up' and user_profile.role == 'donor':
+            pickup_delivery.status = 'picked_up'
+            pickup_delivery.pickup_date = timezone.now()
+            pickup_delivery.quantity_picked_up = int(request.POST.get('quantity_picked_up', 0))
+            pickup_delivery.pickup_notes = request.POST.get('pickup_notes', '')
+            pickup_delivery.save()
+            messages.success(request, "Medicine marked as picked up.")
+            
+            # Notify NGO
+            Notification.objects.create(
+                user=pickup_delivery.ngo,
+                title='Medicine Picked Up',
+                message=f'{pickup_delivery.medicine.name} has been picked up by the donor.'
+            )
+        
+        elif action == 'mark_in_transit' and user_profile.role == 'donor':
+            if pickup_delivery.status == 'picked_up':
+                pickup_delivery.status = 'in_transit'
+                pickup_delivery.save()
+                messages.success(request, "Medicine marked as in transit.")
+                
+                # Notify NGO
+                Notification.objects.create(
+                    user=pickup_delivery.ngo,
+                    title='Medicine In Transit',
+                    message=f'{pickup_delivery.medicine.name} is now in transit to your facility.'
+                )
+        
+        elif action == 'mark_delivered' and user_profile.role == 'ngo':
+            if pickup_delivery.status in ['in_transit', 'picked_up']:
+                pickup_delivery.status = 'delivered'
+                pickup_delivery.delivery_date = timezone.now()
+                pickup_delivery.quantity_delivered = int(request.POST.get('quantity_delivered', 0))
+                pickup_delivery.delivery_notes = request.POST.get('delivery_notes', '')
+                pickup_delivery.save()
+                messages.success(request, "Medicine marked as delivered.")
+                
+                # Update donation request status
+                pickup_delivery.donation_request.status = 'completed'
+                pickup_delivery.donation_request.completed_at = timezone.now()
+                pickup_delivery.donation_request.save()
+                
+                # Notify donor
+                Notification.objects.create(
+                    user=pickup_delivery.donor,
+                    title='Medicine Delivered',
+                    message=f'{pickup_delivery.medicine.name} has been successfully delivered to {pickup_delivery.ngo.profile.organization_name}.'
+                )
+        
+        elif action == 'cancel' and user_profile.role in ['donor', 'ngo']:
+            pickup_delivery.status = 'cancelled'
+            pickup_delivery.save()
+            messages.success(request, "Pickup/Delivery cancelled.")
+        
+        return redirect('pickup_delivery_detail', pd_id=pd_id)
+    
+    context = {
+        'pickup_delivery': pickup_delivery,
+        'can_update_pickup': user_profile.role == 'donor',
+        'can_update_delivery': user_profile.role == 'ngo',
+    }
+    return render(request, 'pickup_delivery_detail.html', context)
+
+
+# ============================================
+# DELIVERY BOY & LIVE TRACKING SYSTEM
+# ============================================
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    Returns distance in kilometers
+    """
+    from math import radians, sin, cos, sqrt, atan2
+    
+    # Convert to radians
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    r = 6371  # Radius of earth in kilometers
+    return c * r
+
+
+def find_nearest_delivery_boy(donor_lat, donor_lon, exclude_busy=True):
+    """
+    Find the nearest available delivery boy using Haversine formula.
+    Returns the closest DeliveryBoy object or None.
+    """
+    if exclude_busy:
+        delivery_boys = DeliveryBoy.objects.filter(is_available='available', verified=True)
+    else:
+        delivery_boys = DeliveryBoy.objects.filter(verified=True)
+    
+    if not delivery_boys.exists():
+        return None
+    
+    min_distance = float('inf')
+    nearest_boy = None
+    
+    for boy in delivery_boys:
+        if boy.current_latitude and boy.current_longitude:
+            distance = haversine_distance(
+                donor_lat, donor_lon,
+                boy.current_latitude, boy.current_longitude
+            )
+            if distance < min_distance:
+                min_distance = distance
+                nearest_boy = boy
+    
+    return nearest_boy
+
+
+@login_required
+def delivery_boy_dashboard(request):
+    """
+    Delivery boy dashboard showing assigned deliveries and statistics.
+    """
+    try:
+        delivery_boy = request.user.delivery_boy
+    except DeliveryBoy.DoesNotExist:
+        messages.error(request, "You are not registered as a delivery boy.")
+        return redirect('home')
+    
+    # Get assigned deliveries
+    deliveries = Delivery.objects.filter(
+        delivery_boy=delivery_boy
+    ).select_related('pickup_delivery__medicine', 'pickup_delivery__donor', 'pickup_delivery__ngo').annotate(
+        avg_rating=Avg('rating')
+    )
+    
+    # Statistics
+    stats = {
+        'active': deliveries.filter(status__in=['assigned', 'picked_up', 'in_transit']).count(),
+        'completed': deliveries.filter(status='delivered').count(),
+        'total': deliveries.count(),
+        'rating': delivery_boy.rating,
+        'completion_rate': delivery_boy.get_completion_rate(),
+    }
+    
+    context = {
+        'delivery_boy': delivery_boy,
+        'deliveries': deliveries,
+        'stats': stats,
+    }
+    return render(request, 'delivery_boy_dashboard.html', context)
+
+
+@login_required
+def delivery_detail(request, delivery_id):
+    """
+    Delivery detail view for delivery boy to update status and location.
+    """
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    
+    # Only delivery boy assigned to this delivery can view it
+    if request.user != delivery.delivery_boy.user:
+        messages.error(request, "You don't have permission to view this delivery.")
+        return redirect('delivery_boy_dashboard')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'mark_picked_up':
+            delivery.status = 'picked_up'
+            delivery.picked_up_at = timezone.now()
+            delivery.save()
+            
+            # Notify NGO
+            Notification.objects.create(
+                user=delivery.pickup_delivery.ngo,
+                title='Medicine Picked Up',
+                message=f'{delivery.pickup_delivery.medicine.name} has been picked up.',
+                donation_request=delivery.pickup_delivery.donation_request
+            )
+            messages.success(request, "Medicine marked as picked up.")
+        
+        elif action == 'start_transit':
+            delivery.status = 'in_transit'
+            delivery.started_at = timezone.now()
+            delivery.save()
+            
+            # Notify NGO
+            Notification.objects.create(
+                user=delivery.pickup_delivery.ngo,
+                title='Medicine In Transit',
+                message=f'{delivery.pickup_delivery.medicine.name} is on the way.',
+                donation_request=delivery.pickup_delivery.donation_request
+            )
+            messages.success(request, "Delivery started.")
+        
+        elif action == 'mark_delivered':
+            delivery.status = 'delivered'
+            delivery.delivered_at = timezone.now()
+            # Update delivery boy stats
+            delivery.delivery_boy.completed_deliveries += 1
+            delivery.delivery_boy.total_deliveries += 1
+            delivery.delivery_boy.save()
+            delivery.save()
+            
+            # Update pickup delivery status
+            delivery.pickup_delivery.status = 'delivered'
+            delivery.pickup_delivery.save()
+            
+            # Notify NGO
+            Notification.objects.create(
+                user=delivery.pickup_delivery.ngo,
+                title='Medicine Delivered',
+                message=f'{delivery.pickup_delivery.medicine.name} has been delivered.',
+                donation_request=delivery.pickup_delivery.donation_request
+            )
+            messages.success(request, "Delivery marked as completed.")
+        
+        return redirect('delivery_detail', delivery_id=delivery_id)
+    
+    # Get location history
+    locations = delivery.locations.all()
+    
+    context = {
+        'delivery': delivery,
+        'pickup_delivery': delivery.pickup_delivery,
+        'locations': locations,
+    }
+    return render(request, 'delivery_detail.html', context)
+
+
+@login_required
+def delivery_assign(request):
+    """
+    Admin view to assign delivery boys to pending pickups.
+    Shows list of pending pickups and available delivery boys.
+    """
+    if not request.user.is_superuser and request.user.profile.role != 'admin':
+        messages.error(request, "You don't have permission to assign deliveries.")
+        return redirect('home')
+    
+    # Get pickups without assignments
+    pending_pickups = PickupDelivery.objects.filter(
+        status__in=['pending', 'picked_up']
+    ).filter(
+        delivery__isnull=True
+    ).select_related('medicine__donor', 'ngo', 'donor')
+    
+    if request.method == 'POST':
+        pickup_id = request.POST.get('pickup_id')
+        delivery_boy_id = request.POST.get('delivery_boy_id')
+        
+        pickup = get_object_or_404(PickupDelivery, id=pickup_id)
+        delivery_boy = get_object_or_404(DeliveryBoy, id=delivery_boy_id)
+        
+        # Create delivery record
+        delivery = Delivery.objects.create(
+            pickup_delivery=pickup,
+            delivery_boy=delivery_boy,
+            status='assigned'
+        )
+        
+        # Mark delivery boy as busy
+        delivery_boy.is_available = 'busy'
+        delivery_boy.save()
+        
+        # Create notification
+        Notification.objects.create(
+            user=delivery_boy.user,
+            title='New Delivery Assigned',
+            message=f'You have been assigned to deliver {pickup.medicine.name}'
+        )
+        
+        messages.success(request, f"Delivery assigned to {delivery_boy.user.first_name}")
+        return redirect('delivery_assign')
+    
+    # Available delivery boys
+    available_boys = DeliveryBoy.objects.filter(is_available='available', verified=True)
+    
+    context = {
+        'pending_pickups': pending_pickups,
+        'available_boys': available_boys,
+    }
+    return render(request, 'delivery_assign.html', context)
+
+
+@login_required
+def delivery_track_admin(request, delivery_id):
+    """
+    Admin view to track delivery progress with live map.
+    """
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    
+    if not request.user.is_superuser and request.user.profile.role != 'admin':
+        messages.error(request, "You don't have permission to view this.")
+        return redirect('home')
+    
+    locations = delivery.locations.all()
+    
+    context = {
+        'delivery': delivery,
+        'pickup_delivery': delivery.pickup_delivery,
+        'locations': locations,
+    }
+    return render(request, 'delivery_track_admin.html', context)
+
+
+@login_required
+def delivery_track_ngo(request, delivery_id):
+    """
+    NGO view to track delivery progress with live map.
+    """
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    
+    if request.user != delivery.pickup_delivery.ngo:
+        messages.error(request, "You don't have permission to view this delivery.")
+        return redirect('home')
+    
+    locations = delivery.locations.all()
+    
+    context = {
+        'delivery': delivery,
+        'pickup_delivery': delivery.pickup_delivery,
+        'locations': locations,
+    }
+    return render(request, 'delivery_track_ngo.html', context)
+
+
+# ============================================
+# AJAX/API ENDPOINTS FOR LIVE TRACKING
+# ============================================
+
+@login_required
+@require_POST
+def update_location(request, delivery_id):
+    """
+    AJAX endpoint to update delivery boy's current location.
+    Accepts JSON with latitude and longitude.
+    """
+    try:
+        delivery = get_object_or_404(Delivery, id=delivery_id)
+        
+        # Only the assigned delivery boy can update location
+        if request.user != delivery.delivery_boy.user:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        # Get coordinates from POST request
+        latitude = request.POST.get('latitude')
+        longitude = request.POST.get('longitude')
+        accuracy = request.POST.get('accuracy')
+        
+        if not latitude or not longitude:
+            return JsonResponse({'error': 'Missing coordinates'}, status=400)
+        
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except ValueError:
+            return JsonResponse({'error': 'Invalid coordinates'}, status=400)
+        
+        # Create location record
+        location = DeliveryLocation.objects.create(
+            delivery=delivery,
+            latitude=latitude,
+            longitude=longitude,
+            accuracy=float(accuracy) if accuracy else None
+        )
+        
+        # Update delivery boy's current location
+        delivery.delivery_boy.current_latitude = latitude
+        delivery.delivery_boy.current_longitude = longitude
+        delivery.delivery_boy.last_location_update = timezone.now()
+        delivery.delivery_boy.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Location updated',
+            'location_id': location.id,
+            'timestamp': location.timestamp.isoformat()
+        })
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_delivery_locations(request, delivery_id):
+    """
+    AJAX endpoint to get all locations for a delivery (for map visualization).
+    Returns JSON list of coordinates.
+    """
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    
+    # Check permissions
+    can_view = (
+        request.user.is_superuser or 
+        request.user == delivery.delivery_boy.user or 
+        request.user == delivery.pickup_delivery.ngo
+    )
+    
+    if not can_view:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    locations = delivery.locations.all().values('id', 'latitude', 'longitude', 'timestamp')
+    
+    return JsonResponse({
+        'delivery_id': delivery_id,
+        'status': delivery.status,
+        'locations': list(locations),
+        'delivery_boy': {
+            'name': delivery.delivery_boy.user.get_full_name() or delivery.delivery_boy.user.username,
+            'phone': delivery.delivery_boy.phone,
+            'vehicle': delivery.delivery_boy.get_vehicle_type_display(),
+        },
+        'medicine': {
+            'name': delivery.pickup_delivery.medicine.name,
+            'quantity': delivery.pickup_delivery.quantity_scheduled,
+        }
+    })
+
+
+@login_required
+def get_delivery_status(request, delivery_id):
+    """
+    AJAX endpoint to get current delivery status.
+    """
+    delivery = get_object_or_404(Delivery, id=delivery_id)
+    
+    # Check permissions
+    can_view = (
+        request.user.is_superuser or 
+        request.user == delivery.delivery_boy.user or 
+        request.user == delivery.pickup_delivery.ngo
+    )
+    
+    if not can_view:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    last_location = delivery.locations.first()
+    
+    return JsonResponse({
+        'delivery_id': delivery_id,
+        'status': delivery.status,
+        'status_display': delivery.get_status_display(),
+        'delivery_boy_name': delivery.delivery_boy.user.get_full_name() or delivery.delivery_boy.user.username,
+        'current_location': {
+            'latitude': last_location.latitude if last_location else None,
+            'longitude': last_location.longitude if last_location else None,
+            'timestamp': last_location.timestamp.isoformat() if last_location else None,
+        },
+        'assigned_at': delivery.assigned_at.isoformat(),
+        'picked_up_at': delivery.picked_up_at.isoformat() if delivery.picked_up_at else None,
+        'delivered_at': delivery.delivered_at.isoformat() if delivery.delivered_at else None,
+    })

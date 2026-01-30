@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Pickup & Delivery - MedShare{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <div style="margin-bottom: 30px;">
+        <h1 style="color: var(--dark); margin: 0 0 10px 0;">
+            <i class="fas fa-truck"></i> Create Pickup & Delivery Record
+        </h1>
+        <p style="color: var(--gray); margin: 0;">Set up a tracking record for transporting this medicine to the NGO</p>
+    </div>
+
+    <!-- Medicine Summary -->
+    <div class="card" style="border-radius: 8px; padding: 20px; margin-bottom: 30px; border-left: 4px solid var(--primary);">
+        <div style="display: flex; gap: 15px;">
+            {% if medicine.image %}
+                <img src="{{ medicine.image.url }}" alt="{{ medicine.name }}"
+                     style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover;">
+            {% else %}
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+                            border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="fas fa-pills" style="font-size: 30px;"></i>
+                </div>
+            {% endif %}
+            
+            <div style="flex: 1;">
+                <h4 style="color: var(--dark); margin: 0 0 5px 0;">{{ medicine.name }}</h4>
+                <p style="margin: 5px 0; color: var(--gray);">
+                    <strong>Quantity:</strong> {{ donation_request.quantity_requested|default:medicine.quantity }} {{ medicine.unit }}
+                </p>
+                <p style="margin: 5px 0; color: var(--gray);">
+                    <strong>Batch:</strong> {{ medicine.batch_number|default:"N/A" }}
+                </p>
+                <p style="margin: 5px 0; color: var(--gray);">
+                    <strong>Expiry:</strong> {{ medicine.expiry_date|date:"M d, Y" }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Donation Request Summary -->
+    <div class="card" style="border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+        <h3 style="color: var(--dark); margin-bottom: 15px;">
+            <i class="fas fa-info-circle"></i> Request Information
+        </h3>
+        
+        <table style="width: 100%; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0;"><strong>Donor:</strong></td>
+                <td style="padding: 10px 0;">{{ donation_request.medicine.donor.first_name }} {{ donation_request.medicine.donor.last_name }}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0;"><strong>NGO/Hospital:</strong></td>
+                <td style="padding: 10px 0;">{{ donation_request.ngo.profile.organization_name|default:donation_request.ngo.username }}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0;"><strong>Request Status:</strong></td>
+                <td style="padding: 10px 0;">
+                    <span style="padding: 4px 12px; background: #d1ecf1; color: #0c5460; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                        {{ donation_request.get_status_display }}
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 0;"><strong>Requested Date:</strong></td>
+                <td style="padding: 10px 0;">{{ donation_request.created_at|date:"M d, Y H:i" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Create Pickup & Delivery Form -->
+    <form method="POST" class="card" style="border-radius: 8px; padding: 30px;">
+        {% csrf_token %}
+        
+        <h3 style="color: var(--dark); margin-bottom: 20px;">
+            <i class="fas fa-list-check"></i> Pickup Details
+        </h3>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">
+                <i class="fas fa-calendar"></i> Scheduled Pickup Date & Time (Optional)
+            </label>
+            <input type="datetime-local" name="scheduled_pickup_date" 
+                   style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+            <small style="color: var(--gray); margin-top: 5px; display: block;">When do you plan to pick up the medicine?</small>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">
+                <i class="fas fa-sticky-note"></i> Pickup Notes (Optional)
+            </label>
+            <textarea name="pickup_notes" rows="4" placeholder="Add any pickup instructions, special handling requirements, or notes..."
+                      style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; resize: vertical;"></textarea>
+            <small style="color: var(--gray); margin-top: 5px; display: block;">E.g., special handling, access instructions, contact person details</small>
+        </div>
+
+        <!-- Form Actions -->
+        <div style="display: flex; gap: 10px; margin-top: 30px;">
+            <button type="submit" class="btn-primary" style="flex: 1; padding: 12px; font-size: 16px; border: none; cursor: pointer;">
+                <i class="fas fa-check"></i> Create Pickup Record
+            </button>
+            <a href="{% url 'donation_request_detail' donation_request.id %}" class="btn-outline" 
+               style="flex: 1; padding: 12px; font-size: 16px; text-align: center; text-decoration: none;">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+
+    <!-- Info Box -->
+    <div style="background: #e7f3ff; border-left: 4px solid #3498db; padding: 20px; border-radius: 8px; margin-top: 30px;">
+        <h4 style="color: #0c5460; margin-top: 0;">
+            <i class="fas fa-lightbulb"></i> What happens next?
+        </h4>
+        <ul style="color: #0c5460; margin: 10px 0 0 0; padding-left: 20px;">
+            <li>Your pickup record will be created and tracked</li>
+            <li>The NGO will be notified about the upcoming pickup</li>
+            <li>You can update the status as you progress through pickup and delivery</li>
+            <li>Both parties will receive notifications at each stage</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+    .card {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-outline {
+        background: white;
+        border: 2px solid #ddd;
+        color: var(--dark);
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: inline-block;
+    }
+    
+    .btn-outline:hover {
+        background: #f8f9fa;
+        border-color: var(--primary);
+        color: var(--primary);
+        text-decoration: none;
+    }
+</style>
+{% endblock %}

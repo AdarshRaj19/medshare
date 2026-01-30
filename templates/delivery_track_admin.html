@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Track Delivery - Admin{% endblock %}
+
+{% block content %}
+<div style="max-width: 1400px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1 style="color: var(--dark); margin: 0;">
+            <i class="fas fa-map"></i> Live Delivery Tracking
+        </h1>
+        <a href="{% url 'delivery_assign' %}" class="btn-outline" style="text-decoration: none;">
+            <i class="fas fa-arrow-left"></i> Back to Assignments
+        </a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 30px;">
+        <!-- Map Section -->
+        <div class="card" style="border-radius: 8px; padding: 20px;">
+            <h3 style="color: var(--dark); margin-bottom: 15px;">
+                <i class="fas fa-map-marker-alt"></i> Live Route Map
+            </h3>
+            <div id="map" style="width: 100%; height: 500px; border-radius: 8px; background: #f0f0f0;"></div>
+        </div>
+
+        <!-- Sidebar Info -->
+        <div>
+            <!-- Delivery Status -->
+            <div class="card" style="border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="color: var(--dark); margin-bottom: 15px;">
+                    <i class="fas fa-info-circle"></i> Delivery Status
+                </h3>
+                
+                <div style="padding: 15px; background: {% if delivery.status == 'delivered' %}#d4edda{% elif delivery.status == 'in_transit' %}#cce5ff{% elif delivery.status == 'picked_up' %}#d1ecf1{% else %}#fff3cd{% endif %}; 
+                            border-radius: 8px; margin-bottom: 15px;">
+                    <p style="margin: 0; font-weight: 600; color: {% if delivery.status == 'delivered' %}#155724{% elif delivery.status == 'in_transit' %}#004085{% elif delivery.status == 'picked_up' %}#0c5460{% else %}#856404{% endif %};">
+                        {{ delivery.get_status_display }}
+                    </p>
+                </div>
+                
+                <table style="width: 100%; font-size: 12px;">
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 8px 0;"><strong>Assigned:</strong></td>
+                        <td style="text-align: right;">{{ delivery.assigned_at|date:"H:i" }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 8px 0;"><strong>Picked Up:</strong></td>
+                        <td style="text-align: right;">{{ delivery.picked_up_at|date:"H:i"|default:"--" }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 8px 0;"><strong>Started:</strong></td>
+                        <td style="text-align: right;">{{ delivery.started_at|date:"H:i"|default:"--" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0;"><strong>Delivered:</strong></td>
+                        <td style="text-align: right;">{{ delivery.delivered_at|date:"H:i"|default:"--" }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Medicine Info -->
+            <div class="card" style="border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="color: var(--dark); margin-bottom: 10px;">
+                    <i class="fas fa-pills"></i> Medicine
+                </h4>
+                
+                <p style="margin: 5px 0; font-weight: 600; color: var(--dark);">{{ pickup_delivery.medicine.name }}</p>
+                <p style="margin: 5px 0; font-size: 12px; color: var(--gray);">
+                    {{ pickup_delivery.quantity_scheduled }} {{ pickup_delivery.medicine.unit }}
+                </p>
+                <p style="margin: 5px 0; font-size: 12px; color: var(--gray);">
+                    Batch: {{ pickup_delivery.medicine.batch_number|default:"N/A" }}
+                </p>
+            </div>
+
+            <!-- Delivery Boy Info -->
+            <div class="card" style="border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid var(--primary);">
+                <h4 style="color: var(--dark); margin-bottom: 10px;">
+                    <i class="fas fa-user"></i> Delivery Boy
+                </h4>
+                
+                <p style="margin: 5px 0; font-weight: 600; color: var(--dark);">
+                    {{ delivery.delivery_boy.user.first_name }} {{ delivery.delivery_boy.user.last_name }}
+                </p>
+                <p style="margin: 5px 0; font-size: 12px; color: var(--gray);">
+                    <i class="fas fa-phone"></i> {{ delivery.delivery_boy.phone }}
+                </p>
+                <p style="margin: 5px 0; font-size: 12px; color: var(--gray);">
+                    <i class="fas fa-car"></i> {{ delivery.delivery_boy.get_vehicle_type_display }}
+                </p>
+                {% if delivery.delivery_boy.vehicle_registration %}
+                <p style="margin: 5px 0; font-size: 12px; color: var(--gray);">
+                    {{ delivery.delivery_boy.vehicle_registration }}
+                </p>
+                {% endif %}
+                <div style="margin-top: 10px;">
+                    <span style="background: #d1ecf1; color: #0c5460; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                        <i class="fas fa-star" style="color: #f39c12;"></i>
+                        {{ delivery.delivery_boy.rating|floatformat:1 }}/5.0
+                    </span>
+                </div>
+            </div>
+
+            <!-- Parties -->
+            <div class="card" style="border-radius: 8px; padding: 20px;">
+                <h4 style="color: var(--dark); margin-bottom: 10px;">
+                    <i class="fas fa-route"></i> Route
+                </h4>
+                
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 11px; color: var(--gray); margin-bottom: 3px;">FROM:</p>
+                    <p style="margin: 0; font-weight: 600; font-size: 12px; color: var(--dark);">
+                        {{ pickup_delivery.medicine.location_name|default:"Not specified" }}
+                    </p>
+                </div>
+                
+                <div style="padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 11px; color: var(--gray); margin-bottom: 3px;">TO:</p>
+                    <p style="margin: 0; font-weight: 600; font-size: 12px; color: var(--dark);">
+                        {{ pickup_delivery.ngo.profile.organization_name|default:pickup_delivery.ngo.username }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Location History -->
+    {% if locations %}
+    <div class="card" style="border-radius: 8px; padding: 20px;">
+        <h3 style="color: var(--dark); margin-bottom: 15px;">
+            <i class="fas fa-history"></i> Location History ({{ locations.count }})
+        </h3>
+        
+        <div style="max-height: 300px; overflow-y: auto;">
+            <table style="width: 100%; font-size: 12px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <th style="padding: 8px; text-align: left; color: var(--dark);">Time</th>
+                        <th style="padding: 8px; text-align: left; color: var(--dark);">Latitude</th>
+                        <th style="padding: 8px; text-align: left; color: var(--dark);">Longitude</th>
+                        <th style="padding: 8px; text-align: left; color: var(--dark);">Accuracy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for location in locations %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 8px;">{{ location.timestamp|date:"M d H:i:s" }}</td>
+                        <td style="padding: 8px; font-family: monospace;">{{ location.latitude|floatformat:6 }}</td>
+                        <td style="padding: 8px; font-family: monospace;">{{ location.longitude|floatformat:6 }}</td>
+                        <td style="padding: 8px;">
+                            {% if location.accuracy %}
+                                ±{{ location.accuracy|floatformat:0 }}m
+                            {% else %}
+                                --
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Leaflet Map and Auto-refresh Script -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<script>
+    let map;
+    let polyline;
+    let markers = [];
+    
+    function initMap() {
+        const locations = {{ locations|safe }};
+        if (locations.length === 0) {
+            document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">No location data available</div>';
+            return;
+        }
+        
+        const firstLoc = locations[0];
+        map = L.map('map').setView([firstLoc.latitude, firstLoc.longitude], 14);
+        
+        // OpenStreetMap layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        plotLocations(locations);
+    }
+    
+    function plotLocations(locations) {
+        // Clear old markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+        
+        if (polyline) map.removeLayer(polyline);
+        
+        // Plot location points
+        locations.forEach((loc, index) => {
+            const isLatest = index === 0;
+            const marker = L.circleMarker([loc.latitude, loc.longitude], {
+                radius: isLatest ? 8 : 5,
+                fillColor: isLatest ? "#e74c3c" : "#667eea",
+                color: isLatest ? "#c0392b" : "#667eea",
+                weight: 2,
+                opacity: 0.8,
+                fillOpacity: 0.7
+            }).addTo(map);
+            
+            const popup = '<strong>' + (isLatest ? 'Latest' : 'Previous') + ' Location</strong><br>' +
+                         new Date(loc.timestamp).toLocaleString();
+            marker.bindPopup(popup);
+            
+            if (isLatest) {
+                marker.openPopup();
+            }
+            
+            markers.push(marker);
+        });
+        
+        // Draw route line
+        const latlngs = locations.map(loc => [loc.latitude, loc.longitude]);
+        if (latlngs.length > 1) {
+            polyline = L.polyline(latlngs, {
+                color: '#667eea',
+                weight: 3,
+                opacity: 0.7,
+                smoothFactor: 1
+            }).addTo(map);
+            
+            // Fit map bounds
+            map.fitBounds(polyline.getBounds(), {padding: [50, 50]});
+        }
+    }
+    
+    // Initialize map on load
+    window.addEventListener('load', initMap);
+    
+    // Auto-refresh location data every 10 seconds
+    setInterval(function() {
+        fetch('{% url "get_delivery_locations" delivery.id %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.locations && map) {
+                    plotLocations(data.locations);
+                }
+            })
+            .catch(error => console.log('Error fetching locations:', error));
+    }, 10000);
+</script>
+
+<style>
+    .card {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-outline {
+        background: white;
+        border: 2px solid #ddd;
+        color: var(--dark);
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline:hover {
+        background: #f8f9fa;
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+</style>
+{% endblock %}

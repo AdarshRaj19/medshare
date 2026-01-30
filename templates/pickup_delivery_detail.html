@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pickup & Delivery Details - MedShare{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <!-- Back Button -->
+    <a href="{% url 'pickup_delivery_dashboard' %}" class="btn-outline" style="margin-bottom: 20px;">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+
+    <!-- Status Timeline -->
+    <div class="card" style="border-radius: 8px; padding: 30px; margin-bottom: 30px;">
+        <h2 style="color: var(--dark); margin-bottom: 25px;">
+            <i class="fas fa-route"></i> Pickup & Delivery Status
+        </h2>
+        
+        <div class="timeline">
+            <!-- Pending -->
+            <div class="timeline-item {% if pickup_delivery.status == 'pending' %}active{% elif pickup_delivery.status in 'picked_up,in_transit,delivered' %}completed{% endif %}">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                    <h4>Pending Pickup</h4>
+                    <p>Waiting for donor to pick up the medicine</p>
+                    {% if pickup_delivery.scheduled_pickup_date %}
+                        <small>Scheduled: {{ pickup_delivery.scheduled_pickup_date|date:"M d, Y H:i" }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Picked Up -->
+            <div class="timeline-item {% if pickup_delivery.status == 'picked_up' %}active{% elif pickup_delivery.status in 'in_transit,delivered' %}completed{% endif %}">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                    <h4>Picked Up</h4>
+                    <p>Medicine picked up by donor</p>
+                    {% if pickup_delivery.pickup_date %}
+                        <small>Picked: {{ pickup_delivery.pickup_date|date:"M d, Y H:i" }}</small>
+                        <br><small>Quantity: {{ pickup_delivery.quantity_picked_up }} {{ pickup_delivery.medicine.unit }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- In Transit -->
+            <div class="timeline-item {% if pickup_delivery.status == 'in_transit' %}active{% elif pickup_delivery.status == 'delivered' %}completed{% endif %}">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                    <h4>In Transit</h4>
+                    <p>Medicine on the way to NGO</p>
+                </div>
+            </div>
+
+            <!-- Delivered -->
+            <div class="timeline-item {% if pickup_delivery.status == 'delivered' %}completed{% endif %}">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                    <h4>Delivered</h4>
+                    <p>Medicine received by NGO</p>
+                    {% if pickup_delivery.delivery_date %}
+                        <small>Delivered: {{ pickup_delivery.delivery_date|date:"M d, Y H:i" }}</small>
+                        <br><small>Quantity: {{ pickup_delivery.quantity_delivered }} {{ pickup_delivery.medicine.unit }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medicine Details -->
+    <div class="card" style="border-radius: 8px; padding: 30px; margin-bottom: 30px;">
+        <h3 style="color: var(--dark); margin-bottom: 20px;">
+            <i class="fas fa-pills"></i> Medicine Information
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                {% if pickup_delivery.medicine.image %}
+                    <img src="{{ pickup_delivery.medicine.image.url }}" alt="{{ pickup_delivery.medicine.name }}"
+                         style="width: 100%; border-radius: 8px; object-fit: cover; max-height: 300px;">
+                {% else %}
+                    <div style="width: 100%; height: 300px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+                                border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="fas fa-pills" style="font-size: 60px;"></i>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div>
+                <h4 style="color: var(--dark); margin-bottom: 15px;">{{ pickup_delivery.medicine.name }}</h4>
+                
+                <table style="width: 100%; font-size: 14px;">
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px 0;"><strong>Quantity:</strong></td>
+                        <td style="padding: 10px 0; color: var(--primary);">{{ pickup_delivery.quantity_scheduled }} {{ pickup_delivery.medicine.unit }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px 0;"><strong>Batch:</strong></td>
+                        <td style="padding: 10px 0;">{{ pickup_delivery.medicine.batch_number|default:"N/A" }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px 0;"><strong>Expiry Date:</strong></td>
+                        <td style="padding: 10px 0;">{{ pickup_delivery.medicine.expiry_date|date:"M d, Y" }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px 0;"><strong>Days Remaining:</strong></td>
+                        <td style="padding: 10px 0; color: {% if pickup_delivery.medicine.is_expired %}#e74c3c{% elif pickup_delivery.medicine.is_expiring_soon %}#f39c12{% else %}#27ae60{% endif %};">
+                            {{ pickup_delivery.medicine.days_until_expiry }} days
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px 0;"><strong>Storage:</strong></td>
+                        <td style="padding: 10px 0;">{{ pickup_delivery.medicine.storage_condition|default:"Standard" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0;"><strong>Rating:</strong></td>
+                        <td style="padding: 10px 0;">
+                            {% if pickup_delivery.avg_rating %}
+                                <i class="fas fa-star" style="color: #f39c12;"></i>
+                                {{ pickup_delivery.avg_rating|floatformat:1 }}/5.0
+                            {% else %}
+                                <span style="color: var(--light-gray);">No ratings yet</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parties Information -->
+    <div class="card" style="border-radius: 8px; padding: 30px; margin-bottom: 30px;">
+        <h3 style="color: var(--dark); margin-bottom: 20px;">
+            <i class="fas fa-users"></i> Involved Parties
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- Donor -->
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--primary);">
+                <h4 style="color: var(--dark); margin-bottom: 10px;">
+                    <i class="fas fa-heart"></i> Donor
+                </h4>
+                <p style="margin: 5px 0;"><strong>{{ pickup_delivery.donor.first_name }} {{ pickup_delivery.donor.last_name }}</strong></p>
+                <p style="margin: 5px 0; color: var(--gray);">{{ pickup_delivery.donor.profile.organization_name|default:"Individual Donor" }}</p>
+                {% if pickup_delivery.donor.profile.phone %}
+                    <p style="margin: 5px 0; color: var(--gray);">
+                        <i class="fas fa-phone"></i> {{ pickup_delivery.donor.profile.phone }}
+                    </p>
+                {% endif %}
+            </div>
+
+            <!-- NGO -->
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--success);">
+                <h4 style="color: var(--dark); margin-bottom: 10px;">
+                    <i class="fas fa-hospital"></i> NGO/Hospital
+                </h4>
+                <p style="margin: 5px 0;"><strong>{{ pickup_delivery.ngo.first_name }} {{ pickup_delivery.ngo.last_name }}</strong></p>
+                <p style="margin: 5px 0; color: var(--gray);">{{ pickup_delivery.ngo.profile.organization_name|default:"Organization" }}</p>
+                {% if pickup_delivery.ngo.profile.phone %}
+                    <p style="margin: 5px 0; color: var(--gray);">
+                        <i class="fas fa-phone"></i> {{ pickup_delivery.ngo.profile.phone }}
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Section -->
+    {% if pickup_delivery.pickup_notes or pickup_delivery.delivery_notes %}
+    <div class="card" style="border-radius: 8px; padding: 30px; margin-bottom: 30px;">
+        <h3 style="color: var(--dark); margin-bottom: 20px;">
+            <i class="fas fa-sticky-note"></i> Notes
+        </h3>
+        
+        {% if pickup_delivery.pickup_notes %}
+        <div style="margin-bottom: 15px;">
+            <h4 style="color: var(--dark); margin-bottom: 10px;">Pickup Notes</h4>
+            <p style="background: #f8f9fa; padding: 15px; border-radius: 8px; color: var(--gray);">
+                {{ pickup_delivery.pickup_notes }}
+            </p>
+        </div>
+        {% endif %}
+        
+        {% if pickup_delivery.delivery_notes %}
+        <div>
+            <h4 style="color: var(--dark); margin-bottom: 10px;">Delivery Notes</h4>
+            <p style="background: #f8f9fa; padding: 15px; border-radius: 8px; color: var(--gray);">
+                {{ pickup_delivery.delivery_notes }}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    {% if pickup_delivery.status != 'delivered' and pickup_delivery.status != 'cancelled' %}
+    <div class="card" style="border-radius: 8px; padding: 30px;">
+        <h3 style="color: var(--dark); margin-bottom: 20px;">
+            <i class="fas fa-tasks"></i> Actions
+        </h3>
+        
+        <form method="POST">
+            {% csrf_token %}
+            
+            {% if can_update_pickup and pickup_delivery.status in 'pending,picked_up' %}
+                {% if pickup_delivery.status == 'pending' %}
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--dark); margin-bottom: 15px;">Mark as Picked Up</h4>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">Quantity Picked Up:</label>
+                        <input type="number" name="quantity_picked_up" 
+                               min="0" max="{{ pickup_delivery.quantity_scheduled }}"
+                               value="{{ pickup_delivery.quantity_scheduled }}"
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">Notes (Optional):</label>
+                        <textarea name="pickup_notes" rows="3"
+                                  style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; resize: vertical;">{{ pickup_delivery.pickup_notes }}</textarea>
+                    </div>
+                    
+                    <button type="submit" name="action" value="mark_picked_up" class="btn-primary"
+                            style="width: 100%; padding: 12px; font-size: 16px; border: none; cursor: pointer;">
+                        <i class="fas fa-check-circle"></i> Mark as Picked Up
+                    </button>
+                </div>
+                {% endif %}
+                
+                {% if pickup_delivery.status == 'picked_up' %}
+                <div style="margin-bottom: 20px;">
+                    <button type="submit" name="action" value="mark_in_transit" class="btn-primary"
+                            style="width: 100%; padding: 12px; font-size: 16px; border: none; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-route"></i> Mark as In Transit
+                    </button>
+                </div>
+                {% endif %}
+            {% endif %}
+            
+            {% if can_update_delivery and pickup_delivery.status in 'in_transit,picked_up' %}
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: var(--dark); margin-bottom: 15px;">Mark as Delivered</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px;">Quantity Delivered:</label>
+                    <input type="number" name="quantity_delivered" 
+                           min="0" max="{{ pickup_delivery.quantity_scheduled }}"
+                           value="{{ pickup_delivery.quantity_scheduled }}"
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px;">Delivery Notes (Optional):</label>
+                    <textarea name="delivery_notes" rows="3"
+                              style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; resize: vertical;">{{ pickup_delivery.delivery_notes }}</textarea>
+                </div>
+                
+                <button type="submit" name="action" value="mark_delivered" class="btn-primary"
+                        style="width: 100%; padding: 12px; font-size: 16px; border: none; cursor: pointer; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <i class="fas fa-box"></i> Mark as Delivered
+                </button>
+            </div>
+            {% endif %}
+            
+            {% if pickup_delivery.status != 'cancelled' %}
+            <div>
+                <button type="submit" name="action" value="cancel" class="btn-danger"
+                        style="width: 100%; padding: 12px; font-size: 16px; border: none; cursor: pointer; background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); color: white; border-radius: 6px;"
+                        onclick="return confirm('Are you sure you want to cancel this pickup/delivery?');">
+                    <i class="fas fa-times-circle"></i> Cancel
+                </button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .timeline-item {
+        display: flex;
+        margin-bottom: 30px;
+        position: relative;
+    }
+    
+    .timeline-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 60px;
+        width: 2px;
+        height: 30px;
+        background: #ddd;
+    }
+    
+    .timeline-item.completed::after {
+        background: #27ae60;
+    }
+    
+    .timeline-item.active::after {
+        background: var(--primary);
+    }
+    
+    .timeline-marker {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #ddd;
+        border: 3px solid white;
+        flex-shrink: 0;
+        margin-right: 20px;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .timeline-item.active .timeline-marker {
+        background: var(--primary);
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+    }
+    
+    .timeline-item.completed .timeline-marker {
+        background: #27ae60;
+    }
+    
+    .timeline-content h4 {
+        color: var(--dark);
+        margin: 0 0 5px 0;
+        font-weight: 600;
+    }
+    
+    .timeline-content p {
+        color: var(--gray);
+        margin: 0;
+        font-size: 14px;
+    }
+    
+    .timeline-content small {
+        color: var(--light-gray);
+        font-size: 12px;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%) !important;
+    }
+    
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+    }
+</style>
+{% endblock %}

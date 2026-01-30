@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assign Delivery Boy - MedShare{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1 style="color: var(--dark); margin: 0;">
+            <i class="fas fa-truck"></i> Assign Delivery Boys
+        </h1>
+        <span style="background: #cce5ff; color: #004085; padding: 10px 20px; border-radius: 20px; font-weight: 600;">
+            <i class="fas fa-users"></i> {{ available_boys.count }} Available
+        </span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+        <!-- Pending Pickups -->
+        <div>
+            <h2 style="color: var(--dark); margin-bottom: 20px;">
+                <i class="fas fa-clock"></i> Pending Pickups ({{ pending_pickups.count }})
+            </h2>
+            
+            {% if pending_pickups %}
+                <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                    {% for pickup in pending_pickups %}
+                    <div class="card" style="border-radius: 8px; padding: 20px; border-left: 4px solid var(--primary);">
+                        <h4 style="color: var(--dark); margin: 0 0 10px 0;">{{ pickup.medicine.name }}</h4>
+                        
+                        <table style="width: 100%; font-size: 12px; margin-bottom: 15px;">
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Quantity:</strong></td>
+                                <td>{{ pickup.quantity_scheduled }} {{ pickup.medicine.unit }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Donor:</strong></td>
+                                <td>{{ pickup.donor.first_name }} {{ pickup.donor.last_name }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Pickup:</strong></td>
+                                <td>{{ pickup.medicine.location_name|default:"Not specified" }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Deliver To:</strong></td>
+                                <td>{{ pickup.ngo.profile.organization_name|default:pickup.ngo.username }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Status:</strong></td>
+                                <td>
+                                    <span style="background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+                                        {{ pickup.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <!-- Assign Form -->
+                        <form method="POST" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="pickup_id" value="{{ pickup.id }}">
+                            
+                            <select name="delivery_boy_id" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+                                <option value="">-- Select Delivery Boy --</option>
+                                {% for boy in available_boys %}
+                                <option value="{{ boy.id }}">
+                                    {{ boy.user.first_name }} ({{ boy.get_vehicle_type_display }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            
+                            <button type="submit" class="btn-primary" style="padding: 8px; font-size: 12px; border: none; cursor: pointer; color: white;">
+                                <i class="fas fa-check"></i> Assign
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px;">
+                    <i class="fas fa-check-circle" style="font-size: 48px; color: #27ae60; margin-bottom: 10px;"></i>
+                    <p style="color: var(--gray); font-size: 14px;">
+                        All pickups have been assigned!
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Available Delivery Boys -->
+        <div>
+            <h2 style="color: var(--dark); margin-bottom: 20px;">
+                <i class="fas fa-users"></i> Available Delivery Boys
+            </h2>
+            
+            {% if available_boys %}
+                <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                    {% for boy in available_boys %}
+                    <div class="card" style="border-radius: 8px; padding: 20px; border-left: 4px solid #27ae60;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                            <div>
+                                <h4 style="color: var(--dark); margin: 0 0 5px 0;">
+                                    {{ boy.user.first_name }} {{ boy.user.last_name }}
+                                </h4>
+                                <p style="margin: 0; font-size: 12px; color: var(--gray);">
+                                    <i class="fas fa-circle" style="font-size: 8px; margin-right: 5px; color: #27ae60;"></i>
+                                    {{ boy.get_is_available_display }}
+                                </p>
+                            </div>
+                            {% if boy.rating %}
+                            <div style="text-align: center;">
+                                <div style="font-size: 16px; color: #f39c12;">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <small style="color: var(--gray);">{{ boy.rating|floatformat:1 }}/5</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <table style="width: 100%; font-size: 11px; margin-bottom: 10px;">
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 5px 0;"><strong>Vehicle:</strong></td>
+                                <td>{{ boy.get_vehicle_type_display }}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 5px 0;"><strong>Registration:</strong></td>
+                                <td>{{ boy.vehicle_registration|default:"N/A" }}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 5px 0;"><strong>Phone:</strong></td>
+                                <td>{{ boy.phone }}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 5px 0;"><strong>Deliveries:</strong></td>
+                                <td>{{ boy.completed_deliveries }}/{{ boy.total_deliveries }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>Distance:</strong></td>
+                                <td>
+                                    {% if boy.current_latitude %}
+                                        <span style="color: #27ae60;">Near me</span>
+                                    {% else %}
+                                        <span style="color: var(--light-gray);">Unknown</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px;">
+                    <i class="fas fa-inbox" style="font-size: 48px; color: var(--light-gray); margin-bottom: 10px;"></i>
+                    <p style="color: var(--gray); font-size: 14px;">
+                        No available delivery boys at the moment.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        color: white;
+        border-radius: 4px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+    }
+</style>
+{% endblock %}

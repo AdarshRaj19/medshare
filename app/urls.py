@@ -33,6 +33,25 @@ urlpatterns = [
     # Donation Request Routes
     path('request/<int:req_id>/', views.donation_request_detail, name='donation_request_detail'),
     
+    # Pickup & Delivery Routes
+    path('pickup-delivery/dashboard/', views.pickup_delivery_dashboard, name='pickup_delivery_dashboard'),
+    path('request/<int:req_id>/create-pickup/', views.create_pickup_delivery, name='create_pickup_delivery'),
+    path('pickup-delivery/<int:pd_id>/', views.pickup_delivery_detail, name='pickup_delivery_detail'),
+    
+    # Delivery Boy Routes
+    path('delivery-boy/dashboard/', views.delivery_boy_dashboard, name='delivery_boy_dashboard'),
+    path('delivery/<int:delivery_id>/', views.delivery_detail, name='delivery_detail'),
+    path('delivery/<int:delivery_id>/track/', views.delivery_track_ngo, name='delivery_track_ngo'),
+    
+    # Admin Delivery Routes
+    path('admin/delivery/assign/', views.delivery_assign, name='delivery_assign'),
+    path('admin/delivery/<int:delivery_id>/track/', views.delivery_track_admin, name='delivery_track_admin'),
+    
+    # AJAX/API Routes for Live Tracking
+    path('api/delivery/<int:delivery_id>/update-location/', views.update_location, name='update_location'),
+    path('api/delivery/<int:delivery_id>/locations/', views.get_delivery_locations, name='get_delivery_locations'),
+    path('api/delivery/<int:delivery_id>/status/', views.get_delivery_status, name='get_delivery_status'),
+    
     # Notifications
     path('notifications/', views.notifications, name='notifications'),
     

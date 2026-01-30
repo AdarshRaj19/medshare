@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pickup & Delivery Dashboard - MedShare{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 40px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1 style="color: var(--dark); margin: 0;">
+            <i class="fas fa-truck"></i> 
+            {% if user_role == 'donor' %}
+                Pickups to Complete
+            {% else %}
+                Deliveries Expected
+            {% endif %}
+        </h1>
+    </div>
+
+    <!-- Statistics -->
+    <div class="dashboard">
+        {% if user_role == 'donor' %}
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.pending_pickups }}</div>
+                <div class="stat-label"><i class="fas fa-clock"></i> Pending Pickups</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.picked_up }}</div>
+                <div class="stat-label"><i class="fas fa-check-circle"></i> Picked Up</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.in_transit }}</div>
+                <div class="stat-label"><i class="fas fa-route"></i> In Transit</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.total }}</div>
+                <div class="stat-label"><i class="fas fa-truck"></i> Total Pickups</div>
+            </div>
+        {% else %}
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.pending_delivery }}</div>
+                <div class="stat-label"><i class="fas fa-hourglass-start"></i> Pending</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.in_transit }}</div>
+                <div class="stat-label"><i class="fas fa-route"></i> In Transit</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.delivered }}</div>
+                <div class="stat-label"><i class="fas fa-box"></i> Delivered</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.total }}</div>
+                <div class="stat-label"><i class="fas fa-truck"></i> Total Deliveries</div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pickups/Deliveries List -->
+{% if pickups %}
+    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+        {% for pd in pickups %}
+        <div class="card app-card">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 20px;">
+                <!-- Left: Medicine Info -->
+                <div style="flex: 1;">
+                    <div style="display: flex; gap: 15px;">
+                        {% if pd.medicine.image %}
+                            <img src="{{ pd.medicine.image.url }}" alt="{{ pd.medicine.name }}" 
+                                 style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover;">
+                        {% else %}
+                            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                                        border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+                                <i class="fas fa-pills" style="font-size: 30px;"></i>
+                            </div>
+                        {% endif %}
+                        
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 5px 0; color: var(--dark);">{{ pd.medicine.name }}</h3>
+                            <p style="margin: 5px 0; color: var(--gray);">
+                                <strong>Quantity:</strong> 
+                                <span style="color: var(--primary);">{{ pd.quantity_scheduled }} {{ pd.medicine.unit }}</span>
+                            </p>
+                            <p style="margin: 5px 0; color: var(--gray);">
+                                <strong>Batch:</strong> {{ pd.medicine.batch_number|default:"N/A" }}
+                            </p>
+                            <p style="margin: 5px 0; color: var(--gray);">
+                                <strong>Expiry:</strong> <span style="color: {% if pd.medicine.is_expired %}#e74c3c{% elif pd.medicine.is_expiring_soon %}#f39c12{% else %}#27ae60{% endif %};">
+                                    {{ pd.medicine.expiry_date|date:"M d, Y" }} ({{ pd.medicine.days_until_expiry }} days)
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Status and Actions -->
+                <div style="min-width: 250px;">
+                    <!-- Status Badge -->
+                    <div style="margin-bottom: 15px;">
+                        <span style="padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 12px; text-transform: uppercase;
+                                     {% if pd.status == 'pending' %}background: #fff3cd; color: #856404;
+                                     {% elif pd.status == 'picked_up' %}background: #d1ecf1; color: #0c5460;
+                                     {% elif pd.status == 'in_transit' %}background: #cce5ff; color: #004085;
+                                     {% elif pd.status == 'delivered' %}background: #d4edda; color: #155724;
+                                     {% else %}background: #f8d7da; color: #721c24;
+                                     {% endif %}">
+                            {% if pd.status == 'pending' %}
+                                <i class="fas fa-clock"></i> Pending Pickup
+                            {% elif pd.status == 'picked_up' %}
+                                <i class="fas fa-check-circle"></i> Picked Up
+                            {% elif pd.status == 'in_transit' %}
+                                <i class="fas fa-route"></i> In Transit
+                            {% elif pd.status == 'delivered' %}
+                                <i class="fas fa-box"></i> Delivered
+                            {% else %}
+                                <i class="fas fa-times-circle"></i> Cancelled
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <!-- Parties Info -->
+                    <p style="margin: 5px 0; font-size: 12px; color: var(--gray);">
+                        {% if user_role == 'donor' %}
+                            <strong>NGO:</strong> {{ pd.ngo.profile.organization_name|default:pd.ngo.username }}
+                        {% else %}
+                            <strong>Donor:</strong> {{ pd.donor.profile.organization_name|default:pd.donor.username }}
+                        {% endif %}
+                    </p>
+
+                    <!-- Timeline -->
+                    <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px;">
+                        {% if pd.scheduled_pickup_date %}
+                            <p style="margin: 3px 0;"><i class="fas fa-calendar"></i> 
+                                <strong>Scheduled:</strong> {{ pd.scheduled_pickup_date|date:"M d, Y H:i" }}
+                            </p>
+                        {% endif %}
+                        {% if pd.pickup_date %}
+                            <p style="margin: 3px 0;"><i class="fas fa-check"></i> 
+                                <strong>Picked:</strong> {{ pd.pickup_date|date:"M d, Y H:i" }}
+                            </p>
+                        {% endif %}
+                        {% if pd.delivery_date %}
+                            <p style="margin: 3px 0;"><i class="fas fa-box"></i> 
+                                <strong>Delivered:</strong> {{ pd.delivery_date|date:"M d, Y H:i" }}
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Action Button -->
+                    <a href="{% url 'pickup_delivery_detail' pd.id %}" class="btn-primary" 
+                       style="display: block; text-align: center; padding: 10px; text-decoration: none; margin-top: 10px;">
+                        <i class="fas fa-eye"></i> View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px;">
+        <i class="fas fa-truck" style="font-size: 48px; color: var(--light-gray); margin-bottom: 10px;"></i>
+        <p style="color: var(--gray); font-size: 16px;">
+            {% if user_role == 'donor' %}
+                No pending pickups at the moment.
+            {% else %}
+                No deliveries expected at the moment.
+            {% endif %}
+        </p>
+    </div>
+{% endif %}
+
+<style>
+    .stat-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .stat-box:nth-child(2) {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stat-box:nth-child(3) {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .stat-box:nth-child(4) {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .stat-number {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .card {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+    }
+    
+    .app-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
