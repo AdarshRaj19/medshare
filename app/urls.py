@@ -59,6 +59,7 @@ urlpatterns = [
     
     # Delivery Boy Routes
     path('delivery-boy/dashboard/', views.delivery_boy_dashboard, name='delivery_boy_dashboard'),
+    path('delivery-boy/claim/', views.claim_pickup, name='claim_pickup'),
     path('delivery/<int:delivery_id>/', views.delivery_detail, name='delivery_detail'),
     path('delivery/<int:delivery_id>/track/', views.delivery_track_ngo, name='delivery_track_ngo'),
     

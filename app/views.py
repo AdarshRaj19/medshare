@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Q, Avg, Count
+from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -31,6 +32,7 @@ from .forms import (
     MedicineVerificationForm, MedicineInventoryForm, AdvancedMedicineSearchForm
 )
 from .recommender import MedicineRecommender
+from .decorators import role_required
 
 
 def home(request):
@@ -89,31 +91,20 @@ def signup(request):
     if request.method == 'POST':
         form = UserSignupForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
-            user.save()
+            user = form.save()
 
-            # Create or update user profile. A post_save signal may already
-            # have created the profile when the user was saved, so use
-            # update_or_create to avoid UNIQUE constraint failures.
+            # Create or update user profile
             UserProfile.objects.update_or_create(
                 user=user,
                 defaults={
-                    'role': form.cleaned_data['role'],
-                    'phone': form.cleaned_data.get('phone'),
-                    'organization_name': form.cleaned_data.get('organization_name'),
+                    'role': request.POST.get('role', 'donor'),
+                    'phone': request.POST.get('phone'),
+                    'organization_name': request.POST.get('organization_name'),
                 }
             )
 
-            # Log the user in
-            login(request, user)
-            messages.success(request, "Account created successfully. Welcome to MedShare!")
-
-            # Redirect based on role
-            if form.cleaned_data['role'] == 'donor':
-                return redirect('donor_dashboard')
-            else:
-                return redirect('ngo_dashboard')
+            messages.success(request, "Account created successfully. Please login.")
+            return redirect('login')
     else:
         form = UserSignupForm()
 
@@ -133,20 +124,28 @@ def user_login(request):
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
-                login(request, user)
-                messages.success(request, f"Welcome back, {user.first_name or user.username}!")
+                # Prevent inactive users from logging in
+                if not user.is_active:
+                    form.add_error(None, 'Account is inactive. Contact support.')
+                else:
+                    login(request, user)
+                    messages.success(request, f"Welcome back, {user.first_name or user.username}!")
 
-                if user.is_superuser:
-                    return redirect('admin_reports')
-                
-                try:
-                    role = user.profile.role
-                    if role == 'donor':
-                        return redirect('donor_dashboard')
-                    else:
-                        return redirect('ngo_dashboard')
-                except UserProfile.DoesNotExist:
-                    return redirect('home')
+                    if user.is_superuser:
+                        return redirect('admin_reports')
+
+                    try:
+                        role = user.profile.role
+                        if role == 'donor':
+                            return redirect('donor_dashboard')
+                        elif role == 'ngo':
+                            return redirect('ngo_dashboard')
+                        elif role == 'delivery_boy':
+                            return redirect('delivery_boy_dashboard')
+                        else:
+                            return redirect('home')
+                    except UserProfile.DoesNotExist:
+                        return redirect('home')
             else:
                 form.add_error(None, 'Invalid username or password')
     else:
@@ -163,6 +162,7 @@ def user_logout(request):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def user_profile(request):
     """View and edit user profile"""
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -205,6 +205,7 @@ def user_profile(request):
 
 
 @login_required
+@role_required('donor')
 def donor_dashboard(request):
     """Donor dashboard - list of donated medicines"""
     medicines = Medicine.objects.filter(donor=request.user).annotate(
@@ -232,6 +233,7 @@ def donor_dashboard(request):
 
 
 @login_required
+@role_required('donor')
 def edit_medicine(request, med_id):
     """Edit an existing medicine donation (donor-only, owner-only)."""
     medicine = get_object_or_404(Medicine, id=med_id, donor=request.user)
@@ -249,6 +251,7 @@ def edit_medicine(request, med_id):
 
 
 @login_required
+@role_required('donor')
 @require_POST
 def delete_medicine(request, med_id):
     """Delete a medicine donation (donor-only, owner-only)."""
@@ -259,6 +262,7 @@ def delete_medicine(request, med_id):
 
 
 @login_required
+@role_required('donor')
 @csrf_exempt
 def add_medicine(request):
     """Add new medicine donation"""
@@ -291,6 +295,7 @@ def add_medicine(request):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def medicine_detail(request, med_id):
     """View medicine details"""
     medicine = get_object_or_404(Medicine, id=med_id)
@@ -317,6 +322,7 @@ def medicine_detail(request, med_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def rate_medicine(request, med_id):
     """Rate a medicine"""
     medicine = get_object_or_404(Medicine, id=med_id)
@@ -343,6 +349,7 @@ def rate_medicine(request, med_id):
 
 
 @login_required
+@role_required('ngo')
 def ngo_dashboard(request):
     """NGO dashboard - search and request medicines"""
     form = MedicineSearchForm(request.GET)
@@ -403,6 +410,7 @@ def ngo_dashboard(request):
 
 
 @login_required
+@role_required('ngo')
 def request_medicine(request, med_id):
     """Request a medicine"""
     medicine = get_object_or_404(Medicine, id=med_id)
@@ -435,6 +443,7 @@ def request_medicine(request, med_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def donation_request_detail(request, req_id):
     """View donation request details"""
     donation_req = get_object_or_404(DonationRequest, id=req_id)
@@ -493,6 +502,7 @@ def donation_request_detail(request, req_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def notifications(request):
     """View user notifications"""
     notifs = request.user.notifications.all()
@@ -553,6 +563,7 @@ def admin_reports(request):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def medicines_map(request):
     """View medicines on map"""
     medicines = Medicine.objects.filter(
@@ -585,6 +596,7 @@ def medicines_map(request):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def search_medicines(request):
     """Advanced medicine search with filters"""
     form = MedicineSearchForm(request.GET)
@@ -782,6 +794,7 @@ def reset_password(request, token):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def expiry_tracker(request):
     """Real-time expiry tracker showing all medicines with countdown"""
     if request.user.profile.role == 'donor':
@@ -924,6 +937,7 @@ def testimonials(request):
     return render(request, 'testimonials.html', context)
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def pickup_delivery_dashboard(request):
     """Pickup and Delivery tracking dashboard for donors and NGOs"""
     user_profile = request.user.profile
@@ -962,6 +976,7 @@ def pickup_delivery_dashboard(request):
 
 
 @login_required
+@role_required('donor')
 def create_pickup_delivery(request, req_id):
     """Create pickup and delivery tracking from donation request"""
     donation_req = get_object_or_404(DonationRequest, id=req_id, status='accepted')
@@ -993,6 +1008,39 @@ def create_pickup_delivery(request, req_id):
             quantity_scheduled=quantity
         )
         
+        # Try to auto-assign nearest available delivery boy
+        donor_lat = None
+        donor_lon = None
+        try:
+            donor_lat = pickup_delivery.medicine.latitude or request.user.profile.latitude
+            donor_lon = pickup_delivery.medicine.longitude or request.user.profile.longitude
+        except Exception:
+            donor_lat = None
+            donor_lon = None
+
+        if donor_lat is not None and donor_lon is not None:
+            # Use a transaction to avoid race conditions where two processes
+            # try to assign the same pickup to different delivery boys.
+            with transaction.atomic():
+                nearest = find_nearest_delivery_boy(donor_lat, donor_lon, exclude_busy=True)
+                if nearest:
+                    # reload pickup_delivery with a lock to ensure it's still unassigned
+                    pd = PickupDelivery.objects.select_for_update().get(id=pickup_delivery.id)
+                    if not hasattr(pd, 'delivery'):
+                        # lock the delivery boy row as well
+                        db_locked = DeliveryBoy.objects.select_for_update().get(id=nearest.id)
+                        delivery = Delivery.objects.create(
+                            pickup_delivery=pd,
+                            delivery_boy=db_locked,
+                            status='assigned'
+                        )
+                        db_locked.is_available = 'busy'
+                        db_locked.save()
+                        Notification.objects.create(
+                            user=db_locked.user,
+                            title='New Delivery Assigned',
+                            message=f'You have been auto-assigned to deliver {pd.medicine.name}.'
+                        )
         messages.success(request, "Pickup and delivery tracking created successfully.")
         return redirect('pickup_delivery_detail', pd_id=pickup_delivery.id)
     
@@ -1004,6 +1052,7 @@ def create_pickup_delivery(request, req_id):
 
 
 @login_required
+@role_required('donor','ngo')
 def pickup_delivery_detail(request, pd_id):
     """View and update pickup/delivery details"""
     pickup_delivery = get_object_or_404(PickupDelivery, id=pd_id)
@@ -1135,6 +1184,7 @@ def find_nearest_delivery_boy(donor_lat, donor_lon, exclude_busy=True):
 
 
 @login_required
+@role_required('delivery_boy')
 def delivery_boy_dashboard(request):
     """
     Delivery boy dashboard showing assigned deliveries and statistics.
@@ -1166,10 +1216,26 @@ def delivery_boy_dashboard(request):
         'deliveries': deliveries,
         'stats': stats,
     }
+    # Nearby unassigned pickups (allow delivery boy to claim)
+    nearby_pickups = []
+    try:
+        if delivery_boy.current_latitude and delivery_boy.current_longitude:
+            candidates = PickupDelivery.objects.filter(delivery__isnull=True, status__in=['pending','picked_up']).select_related('medicine','donor')
+            for pd in candidates:
+                if pd.medicine.latitude and pd.medicine.longitude:
+                    dist = haversine_distance(delivery_boy.current_latitude, delivery_boy.current_longitude, pd.medicine.latitude, pd.medicine.longitude)
+                    if dist <= 10:  # within 10 km
+                        pd.distance_km = round(dist, 2)
+                        nearby_pickups.append(pd)
+    except Exception:
+        nearby_pickups = []
+
+    context['nearby_pickups'] = nearby_pickups
     return render(request, 'delivery_boy_dashboard.html', context)
 
 
 @login_required
+@role_required('delivery_boy')
 def delivery_detail(request, delivery_id):
     """
     Delivery detail view for delivery boy to update status and location.
@@ -1248,6 +1314,7 @@ def delivery_detail(request, delivery_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def delivery_assign(request):
     """
     Admin view to assign delivery boys to pending pickups.
@@ -1303,6 +1370,68 @@ def delivery_assign(request):
 
 
 @login_required
+@role_required('delivery_boy')
+@require_POST
+def claim_pickup(request):
+    """Allow a delivery boy to claim an unassigned pickup (POST: pickup_id)"""
+    try:
+        delivery_boy = request.user.delivery_boy
+    except DeliveryBoy.DoesNotExist:
+        messages.error(request, "You are not registered as a delivery boy.")
+        return redirect('home')
+
+    pickup_id = request.POST.get('pickup_id')
+    if not pickup_id:
+        messages.error(request, "Invalid request.")
+        return redirect('delivery_boy_dashboard')
+
+    # Use a transaction and SELECT FOR UPDATE to avoid concurrent claims
+    try:
+        with transaction.atomic():
+            pickup = PickupDelivery.objects.select_for_update().get(id=pickup_id)
+
+            # Ensure unassigned and pending
+            if hasattr(pickup, 'delivery'):
+                messages.info(request, "This pickup has already been assigned.")
+                return redirect('delivery_boy_dashboard')
+
+            if pickup.status not in ['pending', 'picked_up']:
+                messages.error(request, "This pickup is not available for claiming.")
+                return redirect('delivery_boy_dashboard')
+
+            # lock delivery boy row and check availability
+            db_locked = DeliveryBoy.objects.select_for_update().get(user=request.user)
+            if db_locked.is_available != 'available':
+                messages.error(request, "You are currently not available to claim pickups.")
+                return redirect('delivery_boy_dashboard')
+
+            # Create delivery and mark delivery boy busy
+            delivery = Delivery.objects.create(
+                pickup_delivery=pickup,
+                delivery_boy=db_locked,
+                status='assigned'
+            )
+            db_locked.is_available = 'busy'
+            db_locked.save()
+    except PickupDelivery.DoesNotExist:
+        messages.error(request, "Invalid pickup specified.")
+        return redirect('delivery_boy_dashboard')
+    except DeliveryBoy.DoesNotExist:
+        messages.error(request, "You are not registered as a delivery boy.")
+        return redirect('home')
+
+    Notification.objects.create(
+        user=delivery_boy.user,
+        title='Pickup Claimed',
+        message=f'You have claimed the pickup for {pickup.medicine.name}.'
+    )
+
+    messages.success(request, "Pickup successfully claimed. Check your dashboard for details.")
+    return redirect('delivery_boy_dashboard')
+
+
+@login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def delivery_track_admin(request, delivery_id):
     """
     Admin view to track delivery progress with live map.
@@ -1324,6 +1453,7 @@ def delivery_track_admin(request, delivery_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def delivery_track_ngo(request, delivery_id):
     """
     NGO view to track delivery progress with live map.
@@ -1349,6 +1479,7 @@ def delivery_track_ngo(request, delivery_id):
 # ============================================
 
 @login_required
+@role_required('delivery_boy')
 @require_POST
 def update_location(request, delivery_id):
     """
@@ -1402,6 +1533,7 @@ def update_location(request, delivery_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def get_delivery_locations(request, delivery_id):
     """
     AJAX endpoint to get all locations for a delivery (for map visualization).
@@ -1438,6 +1570,7 @@ def get_delivery_locations(request, delivery_id):
 
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def get_delivery_status(request, delivery_id):
     """
     AJAX endpoint to get current delivery status.
@@ -1474,6 +1607,7 @@ def get_delivery_status(request, delivery_id):
 # ============= EMERGENCY ALERTS =============
 
 @login_required
+@role_required('donor','ngo','delivery_boy','admin')
 def emergency_alerts(request):
     """View all active emergency alerts"""
     alerts = EmergencyAlert.objects.filter(is_active=True).order_by('-priority', '-created_at')
@@ -1501,6 +1635,7 @@ def emergency_alerts(request):
 
 
 @login_required
+@role_required('ngo')
 def create_emergency_alert(request):
     """Create emergency alert (NGO only)"""
     if request.user.profile.role != 'ngo':
@@ -1563,6 +1698,7 @@ def create_emergency_alert(request):
 
 
 @login_required
+@role_required('ngo')
 def resolve_emergency_alert(request, alert_id):
     """Resolve emergency alert (NGO only)"""
     alert = get_object_or_404(EmergencyAlert, id=alert_id, ngo=request.user)
@@ -1580,6 +1716,7 @@ def resolve_emergency_alert(request, alert_id):
 # ============= BULK DONATION REQUESTS =============
 
 @login_required
+@role_required('ngo')
 def bulk_requests(request):
     """View bulk donation requests (NGO dashboard)"""
     if request.user.profile.role != 'ngo':
@@ -1597,6 +1734,7 @@ def bulk_requests(request):
 
 
 @login_required
+@role_required('ngo')
 def create_bulk_request(request):
     """Create bulk donation request (NGO only)"""
     if request.user.profile.role != 'ngo':
@@ -1623,6 +1761,7 @@ def create_bulk_request(request):
 
 
 @login_required
+@role_required('ngo')
 def edit_bulk_request(request, request_id):
     """Edit bulk donation request"""
     bulk_request = get_object_or_404(BulkDonationRequest, id=request_id, ngo=request.user)
@@ -1681,6 +1820,7 @@ def edit_bulk_request(request, request_id):
 
 
 @login_required
+@role_required('ngo')
 def bulk_request_matches(request, request_id):
     """Find matching medicines for bulk request items"""
     bulk_request = get_object_or_404(BulkDonationRequest, id=request_id)
@@ -1834,6 +1974,7 @@ def verify_medicine(request, verification_id):
 # ============= INVENTORY MANAGEMENT =============
 
 @login_required
+@role_required('ngo')
 def ngo_inventory(request):
     """NGO inventory management"""
     if request.user.profile.role != 'ngo':
@@ -1856,6 +1997,7 @@ def ngo_inventory(request):
 
 
 @login_required
+@role_required('ngo')
 def update_inventory(request, inventory_id):
     """Update inventory stock levels"""
     inventory_item = get_object_or_404(MedicineInventory, id=inventory_id, ngo=request.user)

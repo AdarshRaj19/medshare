@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app', '0003_medicinecategory_medicine_brand_name_and_more'),
+        ('app', '0003_combined'),
         ('app', '0004_alter_userprofile_role_deliveryboy_delivery_and_more'),
     ]
 

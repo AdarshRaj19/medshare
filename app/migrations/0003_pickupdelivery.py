@@ -7,34 +7,13 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
+    """Superseded by 0003_combined.py - kept as a no-op to avoid conflicts."""
+
     dependencies = [
         ('app', '0002_new_features'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='PickupDelivery',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('pending', 'Pending Pickup'), ('picked_up', 'Picked Up'), ('in_transit', 'In Transit'), ('delivered', 'Delivered'), ('cancelled', 'Cancelled')], default='pending', max_length=20)),
-                ('scheduled_pickup_date', models.DateTimeField(blank=True, null=True)),
-                ('pickup_date', models.DateTimeField(blank=True, null=True)),
-                ('pickup_notes', models.TextField(blank=True, null=True)),
-                ('delivery_date', models.DateTimeField(blank=True, null=True)),
-                ('delivery_notes', models.TextField(blank=True, null=True)),
-                ('quantity_scheduled', models.IntegerField()),
-                ('quantity_picked_up', models.IntegerField(blank=True, default=0, null=True)),
-                ('quantity_delivered', models.IntegerField(blank=True, default=0, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('donation_request', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='pickup_delivery', to='app.donationrequest')),
-                ('donor', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='pickups_given', to=settings.AUTH_USER_MODEL)),
-                ('medicine', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='pickups', to='app.medicine')),
-                ('ngo', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='pickups_received', to=settings.AUTH_USER_MODEL)),
-            ],
-            options={
-                'ordering': ['-created_at'],
-            },
-        ),
+        # No operations - merged into 0003_combined
     ]

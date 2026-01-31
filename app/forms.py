@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
 from datetime import date
 from .models import (
     Medicine, UserProfile, DonationRequest, MedicineRating,
@@ -95,15 +96,8 @@ class MedicineForm(forms.ModelForm):
         return cleaned_data
 
 
-class UserSignupForm(forms.ModelForm):
-    password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'}),
-        label='Password'
-    )
-    password_confirm = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'}),
-        label='Confirm Password'
-    )
+class UserSignupForm(UserCreationForm):
+    # UserCreationForm already provides password1 and password2
     role = forms.ChoiceField(
         choices=[('donor', 'Medicine Donor'), ('ngo', 'NGO/Hospital'), ('delivery_boy', 'Delivery Boy')],
         widget=forms.RadioSelect(attrs={'class': 'form-check-input'})

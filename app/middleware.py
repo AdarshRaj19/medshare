@@ -16,3 +16,29 @@ class EnsureUserProfileMiddleware:
         return self.get_response(request)
 
 
+class RequireLoginMiddleware:
+    """Require login for protected URL prefixes.
+
+    Exempt paths: /login/, /signup/, /admin/, /static/, /api/ and home/search pages remain public.
+    """
+
+    EXEMPT_PREFIXES = (
+        '/login', '/signup', '/admin', '/static', '/media', '/api', '/about', '/contact', '/faq', '/', '/search', '/medicines-map'
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path
+        # Only protect specific prefixes (donor/ngo/delivery/admin/pickup-delivery)
+        protect_prefixes = ('/donor/', '/ngo/', '/delivery-boy/', '/pickup-delivery/', '/admin/')
+
+        if any(path.startswith(p) for p in protect_prefixes):
+            if not request.user.is_authenticated:
+                from django.shortcuts import redirect
+                return redirect('login')
+
+        return self.get_response(request)
+
+

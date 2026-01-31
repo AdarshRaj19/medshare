@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -27,7 +28,8 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 
-    'app.middleware.EnsureUserProfileMiddleware',   # ✅ fixed
+    'app.middleware.EnsureUserProfileMiddleware',   # Ensure profile exists
+    'app.middleware.RequireLoginMiddleware',        # Protect certain URL prefixes
 
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -106,3 +108,17 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Console back
 # EMAIL_HOST_PASSWORD = 'your-app-password'
 
 DEFAULT_FROM_EMAIL = 'noreply@medshare.com'
+
+# Celery configuration
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_TIMEZONE = TIME_ZONE
+
+# Schedule expire_medicines_task to run daily at midnight
+CELERY_BEAT_SCHEDULE = {
+    'expire-medicines-daily': {
+        'task': 'app.tasks.expire_medicines_task',
+        'schedule': crontab(hour=0, minute=0),
+        'args': (30,),
+    },
+}
