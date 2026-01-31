@@ -102,9 +102,20 @@
                 <i class="fas fa-moon" aria-hidden="true"></i>
             </button>
 
-            <a href="{% url 'user_profile' %}" title="Profile">
-                <i class="fas fa-cog"></i>
-            </a>
+            <!-- User Profile Dropdown -->
+            <div class="nav-user-menu">
+                <a href="{% url 'user_profile' %}" class="user-profile-link" title="Profile Settings">
+                    {% if user.profile.profile_picture %}
+                        <img src="{{ user.profile.profile_picture.url }}" 
+                             alt="{{ user.username }}" 
+                             class="profile-avatar">
+                    {% else %}
+                        <div class="profile-avatar-default">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    {% endif %}
+                </a>
+            </div>
 
             <a class="btn-outline" href="{% url 'logout' %}">
                 <i class="fas fa-sign-out-alt"></i> Logout

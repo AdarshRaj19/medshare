@@ -247,6 +247,58 @@ textarea:focus-visible {
     transform: scale(1.1) rotate(5deg);
 }
 
+/* User Profile Avatar in Navbar */
+.nav-user-menu {
+    display: flex;
+    align-items: center;
+}
+
+.user-profile-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform 0.3s ease;
+}
+
+.user-profile-link:hover {
+    transform: scale(1.1);
+}
+
+.profile-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-avatar:hover {
+    border-color: #ffd700;
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.profile-avatar-default {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    border: 2px solid white;
+    transition: all 0.3s ease;
+}
+
+.profile-avatar-default:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: #ffd700;
+}
+
 /* =====================
    MAIN CONTENT
 ===================== */
