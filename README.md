@@ -336,15 +336,12 @@ Medshare Project Team
 
 Team Members:
 
-Adarsh Raj
+* Adarsh Raj
+* Piyush Gupta
+* Shilpi Kumari
+* Satyam Kr Suman
 
-Piyush Gupta
-
-Shilpi Kumari
-
-Satyam Kr Suman
-
-📬 Support & Contributions
+## 📬 Support & Contributions
 
 For bug reports, feature requests, or contributions:
 
