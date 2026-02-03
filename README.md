@@ -330,19 +330,27 @@ This project is for **educational and research purposes**.
 
 **Medshare Team**
 
-Team members
+👨‍💻 Development Team
+
+Medshare Project Team
+
+Team Members:
+
 Adarsh Raj
+
 Piyush Gupta
+
 Shilpi Kumari
+
 Satyam Kr Suman
----
 
-## 📬 Support
+📬 Support & Contributions
 
-For issues, features, or contributions:
+For bug reports, feature requests, or contributions:
 
-* Open an issue
-* Submit a pull request
+🐞 Open an issue on the repository
+
+🔁 Submit a pull request for review and collaboration
 
 ---
 
