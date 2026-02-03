@@ -341,6 +341,8 @@ Team Members:
 * Shilpi Kumari
 * Satyam Kr Suman
 
+---
+
 ## 📬 Support & Contributions
 
 For bug reports, feature requests, or contributions:
